@@ -1,0 +1,413 @@
+﻿<!DOCTYPE html>
+<html lang="uz" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Fokus & Maqsad — Jonli Preview</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen antialiased">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    const playSuccessSound = () => {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.25);
+      } catch (e) {}
+    };
+
+    const triggerConfetti = () => {
+      if (window.confetti) {
+        window.confetti({
+          particleCount: 50,
+          spread: 60,
+          origin: { y: 0.8 },
+          colors: ['#4f46e5', '#10b981', '#f59e0b', '#ec4899']
+        });
+      }
+    };
+
+    function App() {
+      const [activeTab, setActiveTab] = useState('goals');
+      const [goalSubView, setGoalSubView] = useState('daily');
+      const [xp, setXp] = useState(380);
+      const [streak, setStreak] = useState(14);
+      const [level, setLevel] = useState(4);
+
+      const [focusList, setFocusList] = useState([
+        { id: '1', title: 'Ertalabki 30 daqiqa kitob o\'qish', completed: true, points: 25, category: 'Aql' },
+        { id: '2', title: 'Asosiy loyiha ustida 2 soat chuqur fokus', completed: true, points: 50, category: 'Loyiha' },
+        { id: '3', title: 'Ingliz tili (30 ta yangi so\'z & eshitish)', completed: true, points: 25, category: 'Til' },
+        { id: '4', title: 'Jismoniy mashq (Turnik, yugurish)', completed: false, points: 20, category: 'Sport' },
+        { id: '5', title: 'Kunlik xarajat va daromad hisob-kitobi', completed: false, points: 15, category: 'Moliya' },
+        { id: '6', title: 'Telefon ekran vaqtini 3 soatdan kam saqlash', completed: false, points: 30, category: 'Fokus' },
+        { id: '7', title: 'Ertangi kun uchun eng muhim 3 ta vazifani belgilash', completed: false, points: 15, category: 'Reja' },
+        { id: '8', title: '23:00 gacha uxlashga yotish', completed: false, points: 20, category: 'Salomatlik' },
+      ]);
+
+      const [timerMode, setTimerMode] = useState('work');
+      const [timeLeft, setTimeLeft] = useState(25 * 60);
+      const [isTimerRunning, setIsTimerRunning] = useState(false);
+
+      useEffect(() => {
+        let interval = null;
+        if (isTimerRunning && timeLeft > 0) {
+          interval = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+        } else if (timeLeft === 0 && isTimerRunning) {
+          setIsTimerRunning(false);
+          playSuccessSound();
+          triggerConfetti();
+          setXp(prev => prev + 50);
+          alert('Tabriklaymiz! Fokus seansi yakunlandi. +50 XP!');
+        }
+        return () => clearInterval(interval);
+      }, [isTimerRunning, timeLeft]);
+
+      const formatTime = (seconds) => {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      };
+
+      const toggleHabit = (id) => {
+        setFocusList(prev => prev.map(item => {
+          if (item.id === id) {
+            const nextState = !item.completed;
+            if (nextState) {
+              setXp(x => x + item.points);
+              playSuccessSound();
+              triggerConfetti();
+            } else {
+              setXp(x => Math.max(0, x - item.points));
+            }
+            return { ...item, completed: nextState };
+          }
+          return item;
+        }));
+      };
+
+      const completedCount = focusList.filter(f => f.completed).length;
+      const progressPercent = Math.round((completedCount / focusList.length) * 100);
+
+      return (
+        <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
+          <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3">
+            <div className="max-w-2xl mx-auto flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 flex items-center justify-center font-bold text-white shadow-lg">
+                  🎯
+                </div>
+                <div>
+                  <h1 className="font-extrabold text-sm tracking-tight text-white flex items-center gap-1.5">
+                    Fokus & Maqsad
+                    <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-brand-500/20 text-brand-400 border border-brand-500/30">PWA</span>
+                  </h1>
+                  <p className="text-xs text-slate-400">Daraja {level} • Tajribali Strateg</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold">
+                  <span>🔥</span>
+                  <span>{streak} kun</span>
+                </div>
+                <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-brand-500/10 border border-brand-500/20 text-brand-400 text-xs font-bold">
+                  <span>⚡</span>
+                  <span>{xp} XP</span>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <main className="flex-1 max-w-2xl w-full mx-auto px-4 pt-4 pb-28">
+            {activeTab === 'goals' && (
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-950 via-slate-900 to-slate-900 border border-indigo-500/30">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">⏳ Katta Maqsadgacha Qolgan Vaqt</span>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300">2026-yil 31-dekabr</span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2 text-center my-3">
+                    <div className="bg-slate-900/80 border border-slate-800 p-2 rounded-xl">
+                      <div className="text-lg font-black text-white">130</div>
+                      <div className="text-[10px] text-slate-400 uppercase">Kun</div>
+                    </div>
+                    <div className="bg-slate-900/80 border border-slate-800 p-2 rounded-xl">
+                      <div className="text-lg font-black text-white">14</div>
+                      <div className="text-[10px] text-slate-400 uppercase">Soat</div>
+                    </div>
+                    <div className="bg-slate-900/80 border border-slate-800 p-2 rounded-xl">
+                      <div className="text-lg font-black text-white">32</div>
+                      <div className="text-[10px] text-slate-400 uppercase">Daqiqa</div>
+                    </div>
+                    <div className="bg-slate-900/80 border border-slate-800 p-2 rounded-xl">
+                      <div className="text-lg font-black text-brand-400">45</div>
+                      <div className="text-[10px] text-slate-400 uppercase">Soniya</div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-300 italic">"Katta g'alaba har kungi mayda odatlarning intizomiy yig'indisidir."</p>
+                </div>
+
+                <div className="flex items-center p-1 rounded-2xl bg-slate-900 border border-slate-800">
+                  <button
+                    onClick={() => setGoalSubView('daily')}
+                    className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+                      goalSubView === 'daily' ? 'bg-brand-600 text-white' : 'text-slate-400'
+                    }`}
+                  >
+                    <span>✅ Kunlik 8 Fokus Treker</span>
+                  </button>
+                  <button
+                    onClick={() => setGoalSubView('hierarchy')}
+                    className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+                      goalSubView === 'hierarchy' ? 'bg-brand-600 text-white' : 'text-slate-400'
+                    }`}
+                  >
+                    <span>🌳 Ierarxik Maqsadlar Daraxti</span>
+                  </button>
+                </div>
+
+                {goalSubView === 'daily' ? (
+                  <div className="space-y-3">
+                    <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs font-semibold text-slate-300">Bugungi umumiy bajarilish</span>
+                        <span className="text-xs font-bold text-brand-400">{completedCount} / {focusList.length} ({progressPercent}%)</span>
+                      </div>
+                      <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-brand-600 to-emerald-500 transition-all duration-500 rounded-full"
+                          style={{ width: `${progressPercent}%` }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {focusList.map((item) => (
+                        <div
+                          key={item.id}
+                          onClick={() => toggleHabit(item.id)}
+                          className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                            item.completed 
+                              ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-200' 
+                              : 'bg-slate-900/80 hover:bg-slate-900 border-slate-800 text-slate-200'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center border transition-all ${
+                              item.completed
+                                ? 'bg-emerald-500 border-emerald-400 text-white font-bold text-xs'
+                                : 'border-slate-700 bg-slate-800 text-transparent'
+                            }`}>
+                              ✓
+                            </div>
+                            <div>
+                              <div className={`text-xs sm:text-sm font-medium ${item.completed ? 'line-through text-slate-400' : 'text-slate-100'}`}>
+                                {item.title}
+                              </div>
+                              <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 font-mono mt-1 inline-block">
+                                {item.category}
+                              </span>
+                            </div>
+                          </div>
+                          <span className={`text-xs font-bold px-2 py-1 rounded-lg ${
+                            item.completed ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400'
+                          }`}>
+                            +{item.points} XP
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="p-4 rounded-2xl bg-slate-900 border border-indigo-500/30">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-indigo-400 uppercase">🏆 3 Yillik Strategik Vizyon</span>
+                        <span className="text-xs font-bold text-indigo-300">45%</span>
+                      </div>
+                      <h3 className="text-sm font-bold text-white mb-1">Xalqaro IT-kompaniya asoschisi bo'lish va moliyaviy erkinlik</h3>
+                      <p className="text-xs text-slate-400 mb-3">Portfolio va tizimli biznes orqali yillik $50,000+ daromadga chiqish.</p>
+                      
+                      <div className="ml-3 pl-3 border-l-2 border-indigo-500/40 space-y-3 mt-3">
+                        <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                          <span className="text-[10px] font-bold text-purple-400 uppercase">📅 1 Yillik Maqsad</span>
+                          <h4 className="text-xs font-bold text-slate-200 mt-0.5">3 ta to'liq ishlab turuvchi SaaS loyihani ishga tushirish</h4>
+                          
+                          <div className="ml-2 pl-2 border-l border-purple-500/40 space-y-2 mt-2">
+                            <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs">
+                              <span className="text-[10px] font-bold text-amber-400 uppercase">🎯 Q1: 3 Oylik Bosqich</span>
+                              <p className="text-slate-300 mt-0.5">Fokus va Maqsad ilovasini to'liq yaratish va 1000 ta faol foydalanuvchi to'plash</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'timer' && (
+              <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 text-center space-y-6">
+                <div className="flex justify-center gap-2">
+                  <button onClick={() => { setTimerMode('work'); setTimeLeft(25*60); setIsTimerRunning(false); }} className={`px-3 py-1.5 rounded-xl text-xs font-bold ${timerMode === 'work' ? 'bg-brand-600 text-white' : 'bg-slate-800 text-slate-400'}`}>Fokus (25 daq)</button>
+                  <button onClick={() => { setTimerMode('short'); setTimeLeft(5*60); setIsTimerRunning(false); }} className={`px-3 py-1.5 rounded-xl text-xs font-bold ${timerMode === 'short' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'}`}>Tanaffus (5 daq)</button>
+                </div>
+                <div className="w-48 h-48 mx-auto flex items-center justify-center rounded-full bg-slate-950 border-4 border-brand-500/30">
+                  <div className="text-4xl font-black font-mono text-white">{formatTime(timeLeft)}</div>
+                </div>
+                <div className="flex justify-center gap-3">
+                  <button onClick={() => setIsTimerRunning(!isTimerRunning)} className="px-6 py-3 rounded-2xl bg-brand-600 text-white font-bold text-sm">{isTimerRunning ? 'Pauza' : 'Boshlash'}</button>
+                  <button onClick={() => { setIsTimerRunning(false); setTimeLeft(timerMode === 'work' ? 25*60 : 5*60); }} className="px-4 py-3 rounded-2xl bg-slate-800 text-slate-300 font-bold text-sm">Qayta o'rnatish</button>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'community' && (
+              <div className="space-y-3">
+                <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+                  <h3 className="font-bold text-sm text-white">🔥 Jonli Fokus Hamjamiyati</h3>
+                  <p className="text-xs text-slate-400">42 kishi siz bilan birgalikda maqsadlar ustida ishlamoqda.</p>
+                </div>
+                {[
+                  { user: 'Sardorbek K.', action: '2 soatlik chuqur dasturlash seansini tugatdi', time: '5 daq oldin', icon: '💻', xp: '+50 XP' },
+                  { user: 'Malika R.', action: '30 kunlik uzluksiz o\'qish seriyasiga (Streak) yetdi!', time: '18 daq oldin', icon: '🔥', xp: '+100 XP' },
+                ].map((post, idx) => (
+                  <div key={idx} className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-lg">{post.icon}</div>
+                      <div>
+                        <div className="text-xs font-bold text-white">{post.user}</div>
+                        <div className="text-xs text-slate-300">{post.action}</div>
+                        <div className="text-[10px] text-slate-500">{post.time}</div>
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg">{post.xp}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === 'leaderboard' && (
+              <div className="space-y-2">
+                {[
+                  { rank: '🥇 1', name: 'Javohir Toshmatov', score: '3,450 XP', streak: '28 kun' },
+                  { rank: '🥈 2', name: 'tatyyopr (Siz)', score: `${xp} XP`, streak: `${streak} kun`, isMe: true },
+                  { rank: '🥉 3', name: 'Gulnoza Aliyeva', score: '2,920 XP', streak: '19 kun' },
+                ].map((user, idx) => (
+                  <div key={idx} className={`p-3.5 rounded-2xl border flex items-center justify-between ${
+                    user.isMe ? 'bg-brand-950/40 border-brand-500/40' : 'bg-slate-900 border-slate-800'
+                  }`}>
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold text-sm w-8">{user.rank}</span>
+                      <div>
+                        <div className="text-xs font-bold text-white">{user.name}</div>
+                        <div className="text-[10px] text-slate-400">Streak: {user.streak}</div>
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold text-brand-400 bg-brand-500/10 px-2.5 py-1 rounded-lg">{user.score}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === 'profile' && (
+              <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 text-center space-y-3">
+                <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-tr from-brand-600 to-purple-600 flex items-center justify-center text-3xl">🚀</div>
+                <div>
+                  <h3 className="font-bold text-base text-white">tatyyopr</h3>
+                  <p className="text-xs text-slate-400">Fokus & Maqsad Premium Foydalanuvchi</p>
+                </div>
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800">
+                  <div>
+                    <div className="text-base font-black text-white">{xp}</div>
+                    <div className="text-[10px] text-slate-400">Jami XP</div>
+                  </div>
+                  <div>
+                    <div className="text-base font-black text-amber-400">{streak}</div>
+                    <div className="text-[10px] text-slate-400">Streak</div>
+                  </div>
+                  <div>
+                    <div className="text-base font-black text-emerald-400">{level}</div>
+                    <div className="text-[10px] text-slate-400">Daraja</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </main>
+
+          <nav className="fixed bottom-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 py-2">
+            <div className="max-w-md mx-auto flex items-center justify-around px-2">
+              <button onClick={() => setActiveTab('goals')} className={`flex flex-col items-center gap-1 py-1 px-3 ${activeTab === 'goals' ? 'text-brand-400 font-bold' : 'text-slate-400'}`}>
+                <span className="text-lg">🎯</span>
+                <span className="text-[10px]">Maqsadlar</span>
+              </button>
+              <button onClick={() => setActiveTab('timer')} className={`flex flex-col items-center gap-1 py-1 px-3 ${activeTab === 'timer' ? 'text-brand-400 font-bold' : 'text-slate-400'}`}>
+                <span className="text-lg">⏱️</span>
+                <span className="text-[10px]">Pomodoro</span>
+              </button>
+              <button onClick={() => setActiveTab('community')} className={`flex flex-col items-center gap-1 py-1 px-3 ${activeTab === 'community' ? 'text-brand-400 font-bold' : 'text-slate-400'}`}>
+                <span className="text-lg">👥</span>
+                <span className="text-[10px]">Hamjamiyat</span>
+              </button>
+              <button onClick={() => setActiveTab('leaderboard')} className={`flex flex-col items-center gap-1 py-1 px-3 ${activeTab === 'leaderboard' ? 'text-brand-400 font-bold' : 'text-slate-400'}`}>
+                <span className="text-lg">🏆</span>
+                <span className="text-[10px]">Reyting</span>
+              </button>
+              <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center gap-1 py-1 px-3 ${activeTab === 'profile' ? 'text-brand-400 font-bold' : 'text-slate-400'}`}>
+                <span className="text-lg">👤</span>
+                <span className="text-[10px]">Profil</span>
+              </button>
+            </div>
+          </nav>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>
